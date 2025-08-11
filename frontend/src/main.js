@@ -1,3 +1,5 @@
+import './style.css';
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Element References ---
     const topicInput = document.getElementById('topic-input');
@@ -14,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const showLoading = (isLoading) => {
         loadingIndicator.classList.toggle('hidden', !isLoading);
         generateBtn.disabled = isLoading;
+        autonomousBtn.disabled = isLoading;
     };
 
     const showError = (message) => {
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- API Communication ---
     const fetchInitialState = async () => {
         try {
-            const response = await fetch('/state');
+            const response = await fetch('/api/state');
             if (!response.ok) {
                 throw new Error(`无法加载初始状态: ${response.statusText}`);
             }
@@ -55,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoading(true);
 
         try {
-            const response = await fetch('/chapter', {
+            const response = await fetch('/api/chapter', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -70,19 +73,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
 
-            // 更新章节内容
             const chapterHtml = `<h3>${data.chapter}</h3><p>${data.content.replace(/\n/g, '<br>')}</p>`;
             chapterContent.innerHTML = chapterHtml;
 
-            // 更新状态显示
-            updateStateDisplays({
-                relations: data.relationship_map,
-                memory: data.memory_updates // 注意：这里只显示了最新的更新，可以调整为获取完整记忆
-            });
-
-            // 获取并显示完整状态
             await fetchInitialState();
-
 
         } catch (error) {
             showError(`请求失败: ${error.message}`);
@@ -96,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoading(true);
 
         try {
-            const response = await fetch('/autonomous_step', {
+            const response = await fetch('/api/autonomous_step', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -110,7 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
 
-            // Clear the manual input box as we are in auto mode
             topicInput.value = '';
 
             const chapterHtml = `<h3>${data.chapter}</h3><p>${data.content.replace(/\n/g, '<br>')}</p>`;

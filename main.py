@@ -100,9 +100,10 @@ async def run_autonomous_step():
     return chapter_data
 
 # --- 静态文件服务 ---
-# 将 'static' 目录挂载到根路径，这样 FastAPI 就会为 HTML/CSS/JS 文件提供服务
+# 这部分用于生产环境。它将 'frontend/dist' 目录（由 `npm run build` 生成）挂载到根路径。
+# 在开发环境中，Vite 开发服务器会处理前端文件的服务。
 # 必须放在所有 API 路由之后
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="static_root")
 
 # --- 运行服务器 ---
 # 如果直接运行此文件，则启动 uvicorn 服务器
