@@ -68,20 +68,19 @@ class NovelAgent:
         self.memory_db = TinyDB(memory_db_path, indent=4, ensure_ascii=False)
         self.relations_db = TinyDB(relations_db_path, indent=4, ensure_ascii=False)
 
-        print("Agent 初始化完成。")
-
     def _call_gemini(self, prompt: str) -> str:
         """
         调用 Gemini API 并返回文本响应。
         包含基本的重试和错误处理。
         """
-        print("\n--- 调用 Gemini API ---")
         try:
             response = self.model.generate_content(prompt)
-            # print(f"Gemini Raw Response: {response.text}") # 用于调试
             return response.text
         except Exception as e:
-            print(f"调用 Gemini API 时发生错误: {e}")
+            # 在 API 服务中，最好使用日志记录代替打印
+            # import logging
+            # logging.error(f"调用 Gemini API 时发生错误: {e}")
+            print(f"调用 Gemini API 时发生错误: {e}") # 暂时保留 print 用于调试
             return ""
 
     def load_memory(self) -> List[Dict]:
@@ -90,7 +89,6 @@ class NovelAgent:
 
     def save_memory(self, updates: List[MemoryUpdate]):
         """将新的记忆更新保存到数据库。使用 upsert 逻辑。"""
-        print(f"--- 正在保存 {len(updates)} 条记忆更新 ---")
         Memory = Query()
         for update in updates:
             # 基于 type, id, key 查找并更新/插入
@@ -111,7 +109,6 @@ class NovelAgent:
 
     def save_relations(self, relation_map: RelationshipMap):
         """将更新后的人物关系网完整覆盖回数据库。"""
-        print("--- 正在保存人物关系网 ---")
         self.relations_db.truncate()  # 清空旧数据
         self.relations_db.insert(relation_map.model_dump())
 
@@ -157,8 +154,6 @@ class NovelAgent:
         """
         生成新章节的主函数。
         """
-        print(f"\n--- 开始生成新章节, 主题: {topic} ---")
-
         # 1. 加载当前状态
         current_memory = self.load_memory()
         current_relations = self.load_relations()
@@ -169,23 +164,26 @@ class NovelAgent:
         # 3. 调用 LLM
         response_text = self._call_gemini(prompt)
         if not response_text:
-            print("未能从 Gemini API 获取响应。")
+            # 可以在这里增加日志
             return None
 
         # 4. 解析和验证响应
         try:
             # 从返回的文本中提取 JSON 部分
-            json_str = response_text.strip().split('```json\n', 1)[1].rsplit('```', 1)[0]
+            # 这种方式比简单的 split 更健壮
+            start = response_text.find('```json') + len('```json')
+            end = response_text.rfind('```')
+            if start == -1 or end == -1:
+                json_str = response_text
+            else:
+                json_str = response_text[start:end].strip()
 
             # 使用 Pydantic 模型进行验证
             output = ChapterOutput.model_validate_json(json_str)
-            print("--- Gemini 响应解析和验证成功 ---")
 
-        except (IndexError, json.JSONDecodeError, ValidationError) as e:
+        except (json.JSONDecodeError, ValidationError) as e:
             print(f"!!! Gemini 响应解析失败: {e}")
-            print("--- 原始响应 ---")
-            print(response_text)
-            print("-----------------")
+            print(f"--- 原始响应 ---\n{response_text}\n-----------------")
             return None
 
         # 5. 更新并保存状态
@@ -195,28 +193,35 @@ class NovelAgent:
         # 6. 返回结果
         return output
 
-# --- 运行示例 ---
-if __name__ == "__main__":
-    print("--- 启动 Novel Agent 示例 ---")
-    try:
-        agent = NovelAgent()
+    def propose_next_topic(self) -> Optional[str]:
+        """
+        让 LLM 根据当前故事状态，提出下一个章节的主题。
+        """
+        print("--- 正在请求下一个章节的主题建议 ---")
+        current_memory = self.load_memory()
+        current_relations = self.load_relations()
 
-        # 定义第一章的主题
-        first_chapter_topic = "主角“夜瞳”在一座名为“永夜城”的赛博朋克都市里，为了给病重的妹妹筹集医药费，接受了一个追寻失踪信使的危险委托。"
+        if not current_memory:
+            return "故事刚刚开始，请随意发挥。"
 
-        # 生成章节
-        chapter_data = agent.generate_chapter(first_chapter_topic)
+        memory_str = "\n".join([f"- {m['type']} ({m['key']}): {m['value']}" for m in current_memory])
 
-        # 打印结果
-        if chapter_data:
-            print("\n✅ --- 章节生成成功 --- ✅")
-            # 使用 Pydantic 的 model_dump_json 方法可以很好地格式化输出
-            print(chapter_data.model_dump_json(indent=2, ensure_ascii=False))
-        else:
-            print("\n❌ --- 章节生成失败 --- ❌")
-            print("请检查错误信息。如果是因为 API Key 问题，请确保已正确设置 GOOGLE_API_KEY 环境变量。")
+        prompt = f"""
+你是一位经验丰富的文学编辑和剧情规划师。
+你的任务是根据下面提供的现有故事记忆，为小说的下一章想出一个简短、有悬念、且合乎逻辑的主题。
 
-    except ValueError as e:
-        print(f"\n❌ 初始化错误: {e}")
-    except Exception as e:
-        print(f"\n❌ 发生未知错误: {e}")
+**现有故事记忆:**
+{memory_str}
+
+**你的任务:**
+请只返回一个你认为最合适的下一章主题句，不需要任何额外的解释或修饰。
+例如: "主角决定调查那个神秘符号的来源，却发现它与一个古老的秘密组织有关。"
+"""
+
+        try:
+            response = self._call_gemini(prompt)
+            # 清理一下返回的文本，移除可能的引号
+            return response.strip().strip('"')
+        except Exception as e:
+            print(f"主题建议生成失败: {e}")
+            return None

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动写网文 Agent</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✍️ 自动写网文 Agent</h1>
+            <p>输入一个故事开头的想法，或者延续当前故事的主题，然后点击生成按钮。</p>
+        </header>
+
+        <main>
+            <div class="control-grid">
+                <div class="control-column">
+                    <h3>手动模式</h3>
+                    <div class="input-section">
+                        <textarea id="topic-input" placeholder="输入一个具体的主题或剧情概要..."></textarea>
+                        <button id="generate-btn">生成新章节</button>
+                    </div>
+                </div>
+                <div class="control-column">
+                    <h3>自动模式</h3>
+                    <div class="input-section">
+                        <p class="auto-mode-desc">让 Agent 根据当前故事发展，自动构思并创作下一章节。</p>
+                        <button id="autonomous-btn">自主创作一章</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading-indicator" class="hidden">
+                <div class="spinner"></div>
+                <p>正在联系灵感之神 (Gemini)...</p>
+            </div>
+
+            <div id="error-message" class="hidden"></div>
+
+            <div class="output-section">
+                <div id="chapter-output">
+                    <h2>最新章节</h2>
+                    <div id="chapter-content" class="content-box">
+                        <p class="placeholder">这里将显示最新生成的章节内容。</p>
+                    </div>
+                </div>
+
+                <div class="state-section">
+                    <div class="state-column">
+                        <h2>人物关系网</h2>
+                        <pre id="relations-state" class="content-box state-box">{}</pre>
+                    </div>
+                    <div class="state-column">
+                        <h2>长期记忆</h2>
+                        <pre id="memory-state" class="content-box state-box">[]</pre>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
