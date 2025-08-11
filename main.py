@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # 从 agent 模块导入核心类和数据模型
 from agent import NovelAgent, ChapterOutput, RelationshipMap
